@@ -1,0 +1,207 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum ProjectType {
+  general
+  job_hunt
+}
+
+enum ProjectStatus {
+  active
+  paused
+  done
+  archived
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  blocked
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum JobApplicationStatus {
+  saved
+  applied
+  screening
+  interview
+  offer
+  rejected
+  ghosted
+}
+
+enum JobPlatform {
+  linkedin
+  arc
+  remotojob
+  workana
+  computrabajo
+  occ
+  glassdoor
+  talently
+  getmanfred
+  other
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+  notes         Note[]
+  chatMessages  ChatMessage[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  type        ProjectType   @default(general)
+  status      ProjectStatus @default(active)
+  tasks       Task[]
+  notes       Note[]
+  messages    ChatMessage[]
+  jobApps     JobApplication[]
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId, status])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  status      TaskStatus   @default(todo)
+  priority    TaskPriority @default(medium)
+  blockedBy   String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  notes       Note[]
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId, status])
+  @@index([dueAt])
+}
+
+model Note {
+  id         String      @id @default(cuid())
+  userId     String
+  projectId  String?
+  taskId     String?
+  content    String      @db.Text
+  embedding  Embedding?
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task       Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([userId, projectId])
+}
+
+model Embedding {
+  id        String   @id @default(cuid())
+  noteId    String   @unique
+  vector    Unsupported("vector(1536)")
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String?
+  role      String
+  content   String   @db.Text
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model JobApplication {
+  id               String               @id @default(cuid())
+  projectId        String
+  company          String
+  role             String
+  url              String?
+  platform         JobPlatform            @default(other)
+  status           JobApplicationStatus @default(saved)
+  salaryMin        Int?
+  salaryMax        Int?
+  currency         String?              @default("USD")
+  remote           Boolean              @default(true)
+  location         String?
+  recruiterName    String?
+  recruiterContact String?
+  appliedAt        DateTime?
+  followUpAt       DateTime?
+  notes            String?              @db.Text
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([projectId, status])
+  @@index([followUpAt])
+}
