@@ -4,7 +4,7 @@ export async function completeChat(
   messages: ChatMessage[],
   systemContext?: string,
 ): Promise<string> {
-  const provider = process.env.LLM_PROVIDER ?? "anthropic";
+  const provider = process.env.LLM_PROVIDER ?? "ollama";
 
   if (provider === "groq") {
     return callOpenAICompatible(
@@ -13,10 +13,24 @@ export async function completeChat(
       "llama-3.3-70b-versatile",
       messages,
       systemContext,
+      true,
     );
   }
 
-  return callAnthropic(messages, systemContext);
+  if (provider === "anthropic") {
+    return callAnthropic(messages, systemContext);
+  }
+
+  const base = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
+  const model = process.env.OLLAMA_MODEL ?? "llama3.2";
+  return callOpenAICompatible(
+    `${base}/v1/chat/completions`,
+    "ollama",
+    model,
+    messages,
+    systemContext,
+    false,
+  );
 }
 
 async function callAnthropic(
@@ -28,10 +42,7 @@ async function callAnthropic(
     throw new Error("ANTHROPIC_API_KEY no configurada");
   }
 
-  const system = [
-    systemContext,
-    "Responde en el idioma del usuario. Sé breve y accionable.",
-  ]
+  const system = [systemContext, "Responde en el idioma del usuario. Sé breve."]
     .filter(Boolean)
     .join("\n\n");
 
@@ -70,9 +81,10 @@ async function callOpenAICompatible(
   model: string,
   messages: ChatMessage[],
   systemContext?: string,
+  requireBearer = true,
 ): Promise<string> {
-  if (!apiKey) {
-    throw new Error("GROQ_API_KEY no configurada");
+  if (requireBearer && !apiKey) {
+    throw new Error("API key no configurada");
   }
 
   const payload = [
@@ -82,13 +94,17 @@ async function callOpenAICompatible(
     ...messages,
   ];
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (requireBearer && apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, messages: payload }),
+    headers,
+    body: JSON.stringify({ model, messages: payload, stream: false }),
   });
 
   if (!res.ok) {

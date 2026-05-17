@@ -8,6 +8,58 @@ Asistente personal de proyectos con memoria persistente, búsqueda semántica y 
 
 ---
 
+## Principios inquebrantables
+
+Estas reglas mandan sobre cualquier decisión de stack o UI.
+
+### 1. Costo operativo al mínimo
+
+El producto debe poder usarse y escalarse **sin quemar dinero en APIs**. Objetivo: margen alto si se vende.
+
+| Uso | Proveedor recomendado | Coste |
+|-----|----------------------|-------|
+| Desarrollo / uso personal | **Ollama** (local) | $0 |
+| Chat en la nube (opcional) | **Groq** (tier gratis) | $0–bajo |
+| Calidad puntual (demo) | Anthropic | Solo si hace falta |
+| Embeddings | Local (Ollama) o OpenAI con cache | Preferir local |
+| Base de datos | Postgres self-hosted o Neon free | $0 al inicio |
+| Hosting web | Vercel free / VPS propio | $0–bajo |
+
+**BYOK (Bring Your Own Key):** en una versión vendible, el cliente pone sus keys o corre todo en su servidor. Tú no pagas sus tokens.
+
+**Nada obligatorio de pago** para el flujo core: proyectos, tareas, notas, chat con modelo local.
+
+### 2. Multiplataforma desde el diseño (API primero)
+
+La web (Next.js) es el **primer cliente**, no el único cerebro. Toda la lógica de negocio vive detrás de **API JSON estable** para poder envolverla después.
+
+| Plataforma | Enfoque | Cuándo |
+|------------|---------|--------|
+| **Web / PWA** | Next.js actual | Ahora |
+| **Windows / Linux / macOS** | Tauri o PWA instalable | Fase 5 |
+| **Android / iOS** | Capacitor o Expo consumiendo la misma API | Fase 5 |
+| **ESP32** | Periférico (botón, sensor, webhook), **no** motor del LLM | Opcional |
+
+No duplicar lógica en cada app: un backend, N clientes.
+
+### 3. Exportación y portabilidad
+
+El usuario es dueño de sus datos. Desde el inicio, planear:
+
+- Export **JSON** completo (proyectos, tareas, notas, chat).
+- Export **CSV** para tareas y módulo empleo.
+- Import del mismo formato (recuperación o migración).
+
+Sin lock-in: si dejan de pagar, se llevan todo.
+
+### 4. Camino a producto vendible
+
+- **Self-hosted:** Docker + Postgres + Ollama en el servidor del cliente.
+- **SaaS barato:** multi-tenant en un VPS, BYOK para IA.
+- **Freemium:** core gratis (local), sync/nube de pago.
+
+---
+
 ## Qué resuelve
 
 Registra en qué vas en cada proyecto, qué sigue, qué te bloquea y cuándo toca retomar algo. El chat usa contexto guardado en base de datos; las notas se indexan con embeddings para búsqueda por significado, no solo por palabra exacta.
@@ -19,35 +71,33 @@ No sustituye Notion ni LinkedIn. Complementa tu flujo: un producto propio que us
 ## Arquitectura
 
 ```
-Frontend (Next.js App Router)
-├── Auth          → NextAuth + Google OAuth
-├── Dashboard     → proyectos, tareas, timeline
-├── Chat          → contexto del proyecto → LLM
-└── Calendario    → Google Calendar (Fase 3)
+Clientes (presente y futuro)
+├── Web / PWA     → Next.js (ahora)
+├── Desktop       → Tauri → misma API (futuro)
+├── Mobile        → Capacitor / Expo → misma API (futuro)
+└── ESP32         → webhook → API (opcional, sin LLM en chip)
 
-Backend (API Routes en el mismo repo)
+API REST (Next.js Route Handlers)
 ├── /api/projects
 ├── /api/tasks
 ├── /api/chat
-├── /api/search      → similitud con pgvector
-└── /api/calendar    → Google Calendar (Fase 3)
+├── /api/search
+├── /api/export     → JSON / CSV (planificado)
+└── /api/calendar   → Fase 3
 
-Base de datos (PostgreSQL + pgvector)
-├── users
-├── projects
-├── tasks
-├── notes
-└── embeddings
+Datos
+└── PostgreSQL + pgvector
 
-IA
-├── LLM        → Anthropic Claude o Groq (configurable)
-├── Embeddings → OpenAI text-embedding-3-small
-└── Búsqueda   → pgvector (coseno)
+IA (siempre intercambiable por env)
+├── LLM        → ollama (default) | groq | anthropic
+├── Embeddings → ollama | openai
+└── Búsqueda   → pgvector
 
-Integraciones
-├── Google OAuth
-└── Google Calendar API (Fase 3)
+Auth
+└── Google OAuth (Calendar solo en Fase 3)
 ```
+
+Regla: ningún componente de UI importa Prisma ni llama al LLM directo; solo habla con `/api/*`.
 
 ---
 
@@ -59,8 +109,9 @@ Integraciones
 | **2 — Inteligencia** | Búsqueda semántica en historial, sugerencias de próximos pasos, alertas por inactividad | 1–2 semanas |
 | **3 — Calendario** | Crear eventos desde chat (“recuérdame el viernes 10:00”) | 1 semana |
 | **4 — Portafolio** | Deploy (Vercel + Neon), README público, demo en video ~2 min | 1 semana |
+| **5 — Multiplataforma** | PWA instalable, Tauri (Win/Linux/mac), export/import, doc self-host | según demanda |
 
-**Fase actual:** 1. Lo que ya está en el repo: scaffold Next.js, schema Prisma, rutas API base, capa IA configurable, landing y dashboard mínimo.
+**Fase actual:** 1. Scaffold Next.js, schema Prisma, rutas API, IA configurable (Ollama por defecto), landing y panel mínimo.
 
 ---
 
@@ -134,8 +185,9 @@ Actualiza el CV dentro de 48 h de cada sprint con algo demostrable. No esperes a
 | ORM | Prisma |
 | DB | PostgreSQL + extensión `vector` (pgvector) |
 | Auth | NextAuth.js + Google |
-| LLM | Anthropic / Groq (variable `LLM_PROVIDER`) |
-| Embeddings | OpenAI `text-embedding-3-small` |
+| LLM | Ollama (default) / Groq / Anthropic vía `LLM_PROVIDER` |
+| Embeddings | Ollama local o OpenAI (`EMBEDDING_PROVIDER`) |
+| Clientes futuros | Tauri, Capacitor/Expo (misma API) |
 
 ---
 
@@ -190,10 +242,13 @@ Copia `.env.example` a `.env.local` y completa los valores.
 | `DATABASE_URL` | PostgreSQL (Neon local o cloud) |
 | `AUTH_SECRET` | Secreto NextAuth (`openssl rand -base64 32`) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth Google |
-| `LLM_PROVIDER` | `anthropic` \| `groq` |
-| `ANTHROPIC_API_KEY` | Si usas Claude |
-| `GROQ_API_KEY` | Si usas Groq |
-| `OPENAI_API_KEY` | Embeddings |
+| `LLM_PROVIDER` | `ollama` (default) \| `groq` \| `anthropic` |
+| `OLLAMA_BASE_URL` | Ej. `http://localhost:11434` |
+| `OLLAMA_MODEL` | Ej. `llama3.2` |
+| `GROQ_API_KEY` | Opcional |
+| `ANTHROPIC_API_KEY` | Opcional |
+| `EMBEDDING_PROVIDER` | `ollama` \| `openai` |
+| `OPENAI_API_KEY` | Solo si embeddings = openai |
 | `GOOGLE_CALENDAR_*` | Fase 3 |
 
 ---
@@ -219,9 +274,11 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ## Convenciones de trabajo
 
-1. Revisa la tabla de fases arriba; no implementes Calendar ni RAG avanzado si aún estás en Fase 1.
-2. Cada PR o commit grande: una línea nueva para el CV si aplica.
-3. El módulo job no redefine el core; reutiliza proyectos, tareas y notas donde se pueda.
+1. **Costo primero:** antes de añadir un SaaS de pago, comprobar si Ollama/local o BYOK lo resuelve.
+2. **API primero:** lógica en `src/lib/` + rutas; la UI solo consume JSON.
+3. Revisa la fase actual; no adelantar Calendar o apps nativas sin cerrar el core web.
+4. Cada sprint grande: actualizar CV si hay demo o métrica nueva.
+5. Export JSON/CSV antes de features “bonitas” si compite con portabilidad.
 
 ---
 

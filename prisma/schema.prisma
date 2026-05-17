@@ -162,7 +162,7 @@ model Note {
 model Embedding {
   id        String   @id @default(cuid())
   noteId    String   @unique
-  vector    Unsupported("vector(1536)")
+  vector    Unsupported("vector(768)") // nomic-embed-text (Ollama). OpenAI: migrar a 1536 si cambias proveedor
   note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
