@@ -111,7 +111,7 @@ Regla: ningún componente de UI importa Prisma ni llama al LLM directo; solo hab
 | **4 — Portafolio** | Deploy (Vercel + Neon), README público, demo en video ~2 min | 1 semana |
 | **5 — Multiplataforma** | PWA instalable, Tauri (Win/Linux/mac), export/import, doc self-host | según demanda |
 
-**Fase actual:** 1. Scaffold Next.js, schema Prisma, rutas API, IA configurable (Ollama por defecto), landing y panel mínimo.
+**Fase actual:** 1b. UI con shadcn, rutas `/login`, `/`, `/projects`, `/tasks`, `/chat`, chat con streaming (AI SDK + Ollama).
 
 ---
 
@@ -214,20 +214,11 @@ mindtrack-ai/
 ├── prisma/schema.prisma
 ├── src/
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── auth/[...nextauth]/
-│   │   │   ├── projects/
-│   │   │   ├── tasks/
-│   │   │   ├── chat/
-│   │   │   ├── search/
-│   │   │   └── calendar/          # stub Fase 3
-│   │   ├── dashboard/
-│   │   └── page.tsx
-│   ├── lib/
-│   │   ├── prisma.ts
-│   │   ├── auth.ts
-│   │   └── ai/
-│   └── types/
+│   │   ├── (auth)/login/
+│   │   ├── (dashboard)/          # /, /projects, /tasks, /chat
+│   │   └── api/
+│   ├── components/               # shadcn + sidebar, chat, forms
+│   └── lib/
 └── package.json
 ```
 
