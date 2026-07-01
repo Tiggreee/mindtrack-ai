@@ -8,6 +8,9 @@ export default async function DashboardHomePage() {
   const session = await auth();
   const userId = session!.user!.id;
 
+  const dueAtUpperBound = new Date();
+  dueAtUpperBound.setDate(dueAtUpperBound.getDate() + 7);
+
   const [projectCount, taskCount, dueSoon] = await Promise.all([
     prisma.project.count({ where: { userId, status: "active" } }),
     prisma.task.count({
@@ -17,7 +20,7 @@ export default async function DashboardHomePage() {
       where: {
         project: { userId },
         status: { not: "done" },
-        dueAt: { lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+        dueAt: { lte: dueAtUpperBound },
       },
     }),
   ]);
