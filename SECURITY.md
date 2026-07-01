@@ -2,12 +2,24 @@
 
 ## Supported Versions
 
-Security updates are applied to `main`.
+| Version | Supported |
+| --- | --- |
+| v0.1.x | Yes |
+| < v0.1.0 | No |
 
-## Reporting
+## Reporting a Vulnerability
 
-Report vulnerabilities privately to:
-- tiggreee@vmdev.lat
-- Subject: [SECURITY][mindtrack-ai] <summary>
+Please report vulnerabilities privately by email to tiggreee@vmdev.lat.
 
-Please include impact, reproduction details, and affected modules.
+Include:
+- Affected repository and version/commit
+- Reproduction steps or proof of concept
+- Impact assessment
+- Suggested mitigation (if available)
+
+Response targets:
+- Initial acknowledgement: within 72 hours
+- Triage decision: within 7 days
+- Fix timeline: based on severity and exploitability
+
+Do not open public issues for unpatched security vulnerabilities.
